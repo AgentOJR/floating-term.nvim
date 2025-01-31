@@ -1,57 +1,77 @@
+-- Setup the floating terminal plugin
 local M = {}
-M.terminal_window = nil
-M.terminal_job_id = nil
 
-function M.setup()
-	-- Set up keybindings
-	vim.keymap.set("n", "<leader>tt", M.toggle, {})
+-- Define a new window with floating term capabilities
+function M.create_window(width, height, opts)
+	local win = vim.api.nvim_open_win(opts.bufnr, true, {
+		relative = "editor",
+		row = opts.row,
+		col = opts.col,
+		width = width,
+		height = height,
+		focusable = false,
+		style = "minimal",
+	})
+
+	-- Set the title of the window to be the same as the buffer name
+	vim.api.nvim_win_set_option(win, "title", opts.bufname)
+
+	-- Make the window focusable
+	vim.api.nvim_win_set_option(win, "focusable", true)
+
+	return win
 end
 
-function M.toggle()
-	-- Check if the floating terminal is currently open
-	if M.terminal_window ~= nil then
-		-- Close the floating terminal window
-		vim.cmd(":close")
-	else
-		-- Open a new floating terminal window with the default shell command
-		M.terminal_window = vim.fn.openwin(0, "FloatingTerminal", {})
-		M.terminal_job_id = vim.fn.jobstart({ "sh", "-i" }, { on_exit = function() end })
-	end
+-- Define a floating terminal with the specified width and height
+function M.create_floating_term(width, height)
+	-- Create a new buffer for the terminal
+	local bufnr = vim.api.nvim_create_buf(false, true)
+
+	-- Open the buffer in a floating window with the specified size
+	local win = M.create_window(width, height, {
+		bufnr = bufnr,
+		row = 0,
+		col = 0,
+	})
+
+	-- Set the terminal to be focused on creation
+	vim.api.nvim_win_set_option(win, "focusable", true)
+
+	return win
 end
 
--- Run the command in the floating terminal and hide
-function M.run_command(args)
-	-- Check if the floating terminal is open
-	if M.terminal_window ~= nil then
-		-- Get the current window ID
-		local winid = vim.fn.win_getid()
-		-- Move to the floating terminal window
-		vim.cmd(":execute 'noautocmd wincmd w' . M.terminal_window")
-		-- Run the command in the floating terminal and hide
-		vim.cmd(string.format(":%s %s", args[1], table.concat(args, " ")))
-		-- Move back to the original window
-		vim.cmd(string.format(":noautocmd wincmd w %d", winid))
-	else
-		-- Open a new floating terminal window with the default shell command
-		M.terminal_window = vim.fn.openwin(0, "FloatingTerminal", {})
-		M.terminal_job_id = vim.fn.jobstart({ "sh", "-i" }, { on_exit = function() end })
-	end
+-- Define a function for opening a floating terminal
+function M.open_floating_term()
+	-- Create a new buffer for the terminal
+	local bufnr = vim.api.nvim_create_buf(false, true)
+
+	-- Open the buffer in a floating window with the specified size
+	local win = M.create_window(80, 24, {
+		bufnr = bufnr,
+		row = 0,
+		col = 0,
+	})
+
+	-- Set the terminal to be focused on creation
+	vim.api.nvim_win_set_option(win, "focusable", true)
+
+	return win
 end
 
--- Close the floating terminal window
-function M.close()
-	-- Check if the floating terminal is open
-	if M.terminal_window ~= nil then
-		-- Get the current window ID
-		local winid = vim.fn.win_getid()
-		-- Move to the floating terminal window
-		vim.cmd(":execute 'noautocmd wincmd w' . M.terminal_window")
-		-- Close the floating terminal window
-		vim.cmd(":close")
-		-- Move back to the original window
-		vim.cmd(string.format(":noautocmd wincmd w %d", winid))
-	end
+-- Define a function for focusing the floating terminal
+function M.focus_floating_term()
+	local floating_term = require("plugins/floating-term").open_floating_term()
+
+	-- Set the focus on the floating terminal
+	vim.api.nvim_win_set_option(floating_term, "focusable", true)
 end
 
--- Initialize the plugin
-M.setup()
+-- Define a function for closing the floating terminal
+function M.close_floating_term()
+	local floating_term = require("plugins/floating-term").open_floating_term()
+
+	-- Close the floating terminal window
+	vim.api.nvim_win_close(floating_term, false)
+end
+
+return M
