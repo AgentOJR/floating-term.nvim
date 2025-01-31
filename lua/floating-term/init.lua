@@ -1,14 +1,15 @@
 -- floating-term.nvim/lua/floating-term/init.lua
 
-local Terminal = require("nui.terminal")
-local event = require("nui.utils.autocmd").event
-
 local M = {}
 local terminal_window = nil
 local terminal_instance = nil
 
 local function create_terminal()
 	if not terminal_instance then
+		-- Lazy load the terminal module only when needed
+		local Terminal = require("nui.terminal")
+		local event = require("nui.utils.autocmd").event
+
 		terminal_instance = Terminal:new({
 			position = {
 				row = "10%",
