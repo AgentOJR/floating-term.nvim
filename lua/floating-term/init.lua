@@ -11,20 +11,20 @@ local function init_modules()
 		return true
 	end
 
-	local ok, nui = pcall(require, "nui.nvim")
-	if not ok then
-		vim.notify("nui.nvim not found. Please ensure nui.nvim is installed", vim.log.levels.ERROR)
+	local has_terminal, nui_terminal = pcall(require, "nui.terminal")
+	if not has_terminal then
+		vim.notify("nui.terminal not found. Please ensure nui.nvim is installed", vim.log.levels.ERROR)
 		return false
 	end
 
-	local has_terminal, nui_terminal = pcall(require, "nui.terminal")
-	if not has_terminal then
-		vim.notify("nui.terminal not found", vim.log.levels.ERROR)
+	local has_event, nui_event = pcall(require, "nui.utils.autocmd")
+	if not has_event then
+		vim.notify("nui.utils.autocmd not found", vim.log.levels.ERROR)
 		return false
 	end
 
 	Terminal = nui_terminal
-	event = require("nui.utils.autocmd").event
+	event = nui_event.event
 	return true
 end
 
