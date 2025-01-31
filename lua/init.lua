@@ -1,14 +1,21 @@
--- lua/floating-term/init.lua
-local Terminal = require("nui.terminal")
-local event = require("nui.utils.autocmd").event
+-- Plugin structure should be:
+-- ~/.config/nvim/lua/plugins/floating-term.lua
 
 local M = {}
+
+M.config = {
+	-- Default configuration values
+	disable_default_keymap = false,
+}
+
+-- Terminal state
 local terminal_window = nil
 local terminal_instance = nil
 
 local function create_terminal()
 	-- Create terminal instance if it doesn't exist
 	if not terminal_instance then
+		local Terminal = require("nui.terminal")
 		terminal_instance = Terminal:new({
 			position = {
 				row = "10%",
@@ -31,7 +38,7 @@ local function create_terminal()
 		})
 
 		-- Preserve terminal buffer when window is closed
-		terminal_instance:on(event.BufWinLeave, function()
+		terminal_instance:on(require("nui.utils.autocmd").event.BufWinLeave, function()
 			terminal_window = nil
 		end)
 	end
@@ -64,16 +71,14 @@ function M.toggle()
 	end
 end
 
--- Setup function
 function M.setup(opts)
-	opts = opts or {}
-	-- Add any configuration options here
+	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 
 	-- Create command
 	vim.api.nvim_create_user_command("ToggleTerminal", M.toggle, {})
 
 	-- Optional: Set up keymaps
-	if not opts.disable_default_keymap then
+	if not M.config.disable_default_keymap then
 		vim.keymap.set("n", "<leader>tt", M.toggle, { desc = "Toggle floating terminal" })
 	end
 end
