@@ -2,138 +2,110 @@
 
 local M = {}
 local terminal_window = nil
-local terminal_instance = nil
+local terminal_buffer = nil
 
--- Initialize required modules
-local Terminal, event
-local function init_modules()
-	if Terminal and event then
-		return true
-	end
+local function get_window_size()
+	local width = math.floor(vim.api.nvim_get_option("columns") * 0.8)
+	local height = math.floor(vim.api.nvim_get_option("lines") * 0.8)
+	return width, height
+end
 
-	local has_terminal, nui_terminal = pcall(require, "nui.terminal")
-	if not has_terminal then
-		vim.notify("nui.terminal not found. Please ensure nui.nvim is installed", vim.log.levels.ERROR)
-		return false
-	end
-
-	local has_event, nui_event = pcall(require, "nui.utils.autocmd")
-	if not has_event then
-		vim.notify("nui.utils.autocmd not found", vim.log.levels.ERROR)
-		return false
-	end
-
-	Terminal = nui_terminal
-	event = nui_event.event
-	return true
+local function get_window_position(width, height)
+	local row = math.floor((vim.api.nvim_get_option("lines") - height) * 0.1)
+	local col = math.floor((vim.api.nvim_get_option("columns") - width) * 0.1)
+	return row, col
 end
 
 local function create_terminal()
-	if terminal_instance then
-		return terminal_instance
+	if terminal_buffer and vim.api.nvim_buf_is_valid(terminal_buffer) then
+		return terminal_buffer
 	end
 
-	if not init_modules() then
-		return nil
-	end
+	-- Create a new buffer for the terminal
+	terminal_buffer = vim.api.nvim_create_buf(false, true)
 
-	local ok, term = pcall(function()
-		return Terminal:new({
-			position = {
-				row = "10%",
-				col = "10%",
-			},
-			size = {
-				width = "80%",
-				height = "80%",
-			},
-			border = {
-				style = "rounded",
-				text = {
-					top = "[Terminal]",
-					top_align = "center",
-				},
-			},
-			win_options = {
-				winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
-			},
-		})
-	end)
+	-- Set buffer options
+	vim.api.nvim_buf_set_option(terminal_buffer, "bufhidden", "hide")
+	vim.api.nvim_buf_set_option(terminal_buffer, "modifiable", true)
 
-	if not ok then
-		vim.notify("Failed to create terminal: " .. tostring(term), vim.log.levels.ERROR)
-		return nil
-	end
-
-	terminal_instance = term
-
-	local setup_ok, err = pcall(function()
-		terminal_instance:on(event.BufWinLeave, function()
+	-- Open terminal in the buffer
+	vim.fn.termopen(vim.o.shell, {
+		on_exit = function()
+			if terminal_buffer and vim.api.nvim_buf_is_valid(terminal_buffer) then
+				vim.api.nvim_buf_delete(terminal_buffer, { force = true })
+				terminal_buffer = nil
+			end
 			terminal_window = nil
-			terminal_instance = nil
-		end)
+		end,
+	})
 
-		terminal_instance:on(event.BufDelete, function()
-			terminal_window = nil
-			terminal_instance = nil
-		end)
-	end)
+	return terminal_buffer
+end
 
-	if not setup_ok then
-		vim.notify("Failed to setup terminal events: " .. tostring(err), vim.log.levels.ERROR)
-		terminal_instance = nil
-		return nil
-	end
+local function create_window()
+	local width, height = get_window_size()
+	local row, col = get_window_position(width, height)
 
-	return terminal_instance
+	-- Window options
+	local opts = {
+		relative = "editor",
+		row = row,
+		col = col,
+		width = width,
+		height = height,
+		style = "minimal",
+		border = "rounded",
+		title = " Terminal ",
+		title_pos = "center",
+	}
+
+	-- Create the window
+	terminal_window = vim.api.nvim_open_win(terminal_buffer, true, opts)
+
+	-- Set window-local options
+	vim.wo[terminal_window].winhl = "Normal:Normal,FloatBorder:FloatBorder"
+	vim.wo[terminal_window].winblend = 0
+
+	-- Set up autocommands for cleanup
+	vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
+		buffer = terminal_buffer,
+		callback = function()
+			if terminal_window and vim.api.nvim_win_is_valid(terminal_window) then
+				vim.api.nvim_win_hide(terminal_window)
+				terminal_window = nil
+			end
+		end,
+	})
+
+	return terminal_window
 end
 
 function M.toggle()
-	if not terminal_window then
-		local term = create_terminal()
-		if not term then
+	if not terminal_window or not vim.api.nvim_win_is_valid(terminal_window) then
+		-- Create or get existing terminal buffer
+		local buf = create_terminal()
+		if not buf then
+			vim.notify("Failed to create terminal buffer", vim.log.levels.ERROR)
 			return
 		end
 
-		local ok, err = pcall(function()
-			term:mount()
-			terminal_window = term.winid
-			vim.cmd("startinsert")
-		end)
-
-		if not ok then
-			vim.notify("Failed to mount terminal: " .. tostring(err), vim.log.levels.ERROR)
+		-- Create window
+		local win = create_window()
+		if not win then
+			vim.notify("Failed to create terminal window", vim.log.levels.ERROR)
+			return
 		end
+
+		vim.cmd("startinsert")
 	else
-		if vim.api.nvim_win_is_valid(terminal_window) then
-			vim.api.nvim_win_hide(terminal_window)
-			terminal_window = nil
-		else
-			local term = create_terminal()
-			if not term then
-				return
-			end
-
-			local ok, err = pcall(function()
-				term:mount()
-				terminal_window = term.winid
-				vim.cmd("startinsert")
-			end)
-
-			if not ok then
-				vim.notify("Failed to mount terminal: " .. tostring(err), vim.log.levels.ERROR)
-			end
-		end
+		-- Hide the window if it's visible
+		vim.api.nvim_win_hide(terminal_window)
+		terminal_window = nil
 	end
 end
 
 function M.setup(opts)
 	opts = opts or {}
-
-	if not init_modules() then
-		vim.notify("Failed to initialize floating-term. Required dependencies not found.", vim.log.levels.ERROR)
-		return
-	end
 
 	vim.api.nvim_create_user_command("ToggleTerminal", M.toggle, {})
 
