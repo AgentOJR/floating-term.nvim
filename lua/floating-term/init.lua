@@ -123,6 +123,8 @@ function M.setup(opts)
 
 	if not opts.disable_default_keymap then
 		vim.keymap.set("n", "<leader>tt", M.toggle, { desc = "Toggle floating terminal" })
+		-- Add escape sequence for terminal mode
+		vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 	end
 end
 
