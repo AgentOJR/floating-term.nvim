@@ -39,6 +39,10 @@ local function create_terminal()
 		end,
 	})
 
+	-- Set buffer to terminal mode
+	vim.api.nvim_buf_set_option(terminal_buffer, "buftype", "terminal")
+	vim.api.nvim_buf_set_option(terminal_buffer, "buflisted", false)
+
 	return terminal_buffer
 end
 
@@ -66,7 +70,7 @@ local function create_window()
 	vim.wo[terminal_window].winhl = "Normal:Normal,FloatBorder:FloatBorder"
 	vim.wo[terminal_window].winblend = 0
 
-	-- Set up autocommands for cleanup
+	-- Set up autocommands for cleanup and terminal mode
 	vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
 		buffer = terminal_buffer,
 		callback = function()
@@ -74,6 +78,14 @@ local function create_window()
 				vim.api.nvim_win_hide(terminal_window)
 				terminal_window = nil
 			end
+		end,
+	})
+
+	-- Automatically enter insert mode when focusing the terminal
+	vim.api.nvim_create_autocmd("BufEnter", {
+		buffer = terminal_buffer,
+		callback = function()
+			vim.cmd("startinsert")
 		end,
 	})
 
