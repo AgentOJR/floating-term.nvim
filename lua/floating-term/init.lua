@@ -1,4 +1,4 @@
--- ~/.config/nvim/lua/owenrabe/plugins/floating-term/lua/floating-term/init.lua
+-- floating-term.nvim/lua/floating-term/init.lua
 
 local Terminal = require("nui.terminal")
 local event = require("nui.utils.autocmd").event
